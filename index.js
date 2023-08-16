@@ -1,8 +1,10 @@
 const express = require('express')
+const jwt = require('jsonwebtoken')
 const { connect } = require('./src/database')
 const User = require('./src/schemas/user')
 const app = express()
 const port = 3000
+const JWT_SECRET = 'zrp-mentoria-1234'
 connect('mongodb://mongo:27017/mentoria').then(() => {
 
   app.use(express.json())
@@ -37,21 +39,22 @@ connect('mongodb://mongo:27017/mentoria').then(() => {
       email // : email
     }).then((user) => {
       if (password === user.password) {
-        const token = "abcd1234-" + user._id
-        res.status(200).json({ token })
+        const token = jwt.sign({ id: user._id }, JWT_SECRET)
+        return res.status(200).json({ token })
       }
 
       return Promise.reject()
-    }).catch(() => {
-      res.status(501).send()
+    }).catch((error) => {
+      console.log(error.message)
+      res.status(401).send()
     })
 
-    // LOGIN TODO
-    // - Recebe email
-    // - Consultar pra ver se usuario existe
-    // - Encriptar a senha que é passada pelo cliente, e comparar com a do banco
-    // - Valida se esta no banco
-    // - 
+  })
+  app.post('/user/add-pokemon', function (req, res) {
+    //VERIFICAR USUARIO AUTENTICADO
+    //VERIFICAR SE POKEMON ESTA NO BANCO DE DADOS
+    //SE NAO TIVER NO BANCO CONSULTAR A POKEAPI
+    //VINCULAR O POKEMON AO USUARIO
   })
 
   app.listen(port, function () {
