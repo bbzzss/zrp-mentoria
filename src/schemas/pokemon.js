@@ -6,6 +6,7 @@ const StatsSchema = new mongoose.Schema({
 })
 const PokemonSchema = new mongoose.Schema({
     name: String,
+    pokeApiId: Number,
     type: [String],
     stats: [StatsSchema]
 })

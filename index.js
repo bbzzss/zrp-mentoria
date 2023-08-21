@@ -2,6 +2,7 @@ const express = require('express')
 const jwt = require('jsonwebtoken')
 const { connect } = require('./src/database')
 const User = require('./src/schemas/user')
+const Pokemon = require('./src/schemas/pokemon')
 const app = express()
 const port = 3000
 const JWT_SECRET = 'zrp-mentoria-1234'
@@ -10,10 +11,10 @@ connect('mongodb://mongo:27017/mentoria').then(() => {
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
 
-  app.use((req, res, next) => {
-    console.log(req.headers, req.body)
-    next()
-  })
+  // app.use((req, res, next) => {
+  //   console.log(req.headers, req.body)
+  //   next()
+  // })
 
   app.get('/', function (req, res) {
     res.send('Hello World!')
@@ -36,7 +37,7 @@ connect('mongodb://mongo:27017/mentoria').then(() => {
     const { email, password } = req.body
 
     User.findOne({
-      email // : email
+      email
     }).then((user) => {
       if (password === user.password) {
         const token = jwt.sign({ id: user._id }, JWT_SECRET)
@@ -50,11 +51,39 @@ connect('mongodb://mongo:27017/mentoria').then(() => {
     })
 
   })
+
   app.post('/user/add-pokemon', function (req, res) {
-    //VERIFICAR USUARIO AUTENTICADO
-    //VERIFICAR SE POKEMON ESTA NO BANCO DE DADOS
-    //SE NAO TIVER NO BANCO CONSULTAR A POKEAPI
-    //VINCULAR O POKEMON AO USUARIO
+    const token = req.headers.authorization.split(" ")[1]
+    const decoded = jwt.verify(token, JWT_SECRET)
+    const { pokeApiId } = req.body
+
+    let signedUser;
+
+    if (!pokeApiId) {
+      return res.status(400).send()
+    }
+
+    User.findById(decoded.id).then((user) => {
+      if (!user) {
+        return res.status(401).send()
+      }
+
+      signedUser = user
+      return Pokemon.findOne({
+        pokeApiId,
+      })
+      //VINCULAR O POKEMON AO USUARIO
+    }).then((pokemon) => {
+      //VERIFICAR SE POKEMON ESTA NO BANCO DE DADOS
+      if (!pokemon) {
+        //SE NAO TIVER NO BANCO CONSULTAR A POKEAPI
+      }
+
+      user.pokemons.push(pokemon._id)
+      return user.save()
+    })
+
+    res.status(200).send()
   })
 
   app.listen(port, function () {
