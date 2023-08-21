@@ -1,5 +1,7 @@
 const express = require('express')
 const jwt = require('jsonwebtoken')
+const axios = require('axios')
+
 const { connect } = require('./src/database')
 const User = require('./src/schemas/user')
 const Pokemon = require('./src/schemas/pokemon')
@@ -7,6 +9,9 @@ const app = express()
 const port = 3000
 const JWT_SECRET = 'zrp-mentoria-1234'
 connect('mongodb://mongo:27017/mentoria').then(() => {
+  const client = axios.create({
+    baseURL: 'https://pokeapi.co/api/v2/pokemon',
+  })
 
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
@@ -52,43 +57,48 @@ connect('mongodb://mongo:27017/mentoria').then(() => {
 
   })
 
-  app.post('/user/add-pokemon', function (req, res) {
+  app.post('/user/add-pokemon', async function (req, res) {
     const token = req.headers.authorization.split(" ")[1]
     const decoded = jwt.verify(token, JWT_SECRET)
     const { pokeApiId } = req.body
-
-    let signedUser;
 
     if (!pokeApiId) {
       return res.status(400).send()
     }
 
-    User.findById(decoded.id).then((user) => {
-      if (!user) {
-        return res.status(401).send()
-      }
+    const signedUser = await User.findById(decoded.id)
 
-      signedUser = user
-      return Pokemon.findOne({
-        pokeApiId,
-      })
-      //VINCULAR O POKEMON AO USUARIO
-    }).then((pokemon) => {
-      //VERIFICAR SE POKEMON ESTA NO BANCO DE DADOS
-      if (!pokemon) {
-        //SE NAO TIVER NO BANCO CONSULTAR A POKEAPI
-      }
+    if (!signedUser) {
+      return res.status(401).send()
+    }
 
-      user.pokemons.push(pokemon._id)
-      return user.save()
+    let pokemon = await Pokemon.findOne({
+      pokeApiId
     })
 
-    res.status(200).send()
+    if (!pokemon) {
+      const { data } = await client.get(`/${pokeApiId}`)
+
+      pokemon = await Pokemon.create({
+        name: data.name,
+        pokeApiId: data.pokeApiId,
+        types: data.types.map((type) => type.name),
+        stats: data.stats.map((status) => ({
+          baseStat: status.base_stat,
+          effort: status.effort,
+          name: status.stat.name
+        }))
+      })
+    }
+
+    signedUser.pokemons.push(pokemon._id)
+    await signedUser.save()
+
+    return res.status(200).send()
   })
+
 
   app.listen(port, function () {
     console.log('Aplicação escutando na porta 3000')
   })
-}).catch((error) => {
-  console.error(error.message)
 })
